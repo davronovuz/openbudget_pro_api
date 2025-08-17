@@ -10,7 +10,7 @@ class IsSubscribedOr403(BasePermission):
             return False
 
         # Agar user modelda telegram_id bo'lsa undan olamiz, aks holda pk dan
-        tg_id = getattr(user, "telegram_id", None) or user.pk
+        tg_id = getattr(user, "user_id", None) or user.pk
 
         result = compute_subscribe_status(tg_id)
         return bool(result.get("fully_subscribed"))
