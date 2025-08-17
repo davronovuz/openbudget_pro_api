@@ -11,9 +11,12 @@ from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
+from django.contrib import admin, messages
+
+
 from .models import (
     User, UserPhone, Project, Vote, OtpAttempt, Referral,
-    Transaction, Withdrawal, AdminLog, SeleniumJob, Channel, Setting, ExportJob
+    Transaction, Withdrawal, AdminLog, SeleniumJob, Channel, Setting, ExportJob,RequiredChannel
 )
 
 # ==============================
@@ -30,6 +33,64 @@ admin.site.index_title = "Boshqaruv paneli"
 def uzs(n):
     """Raqamni vergul bilan ajratib (1,234,567) so'm ko'rinishida chiqarish uchun matn qaytaradi."""
     return f"{(n or 0):,}"
+
+
+
+@admin.register(RequiredChannel)
+class RequiredChannelAdmin(admin.ModelAdmin):
+    """
+    Minimal, ishonchli va qulay admin:
+    - Jadvalda asosiy maydonlar
+    - Tez tahrirlash: is_active, priority
+    - Oddiy qidiruv va filtrlar
+    - Ikki action: Activate / Deactivate
+    - Hech qanday murakkab render yoki nozik hiyla yo'q — sindirish qiyin :)
+    """
+
+    # Jadval ko'rinishi
+    list_display = ("id", "title", "chat_id", "invite_link", "is_active", "priority", "created_at")
+    list_display_links = ("id", "title")
+    list_editable = ("is_active", "priority")
+    ordering = ("priority", "id")
+
+    # Qidiruv va filtrlar
+    search_fields = ("title", "chat_id", "invite_link")
+    list_filter = ("is_active",)
+    date_hierarchy = "created_at"
+
+    # Form ko'rinishi — soddalashtirilgan
+    readonly_fields = ("created_at",)
+    fields = ("title", "chat_id", "invite_link", "is_active", "priority", "created_at")
+
+    # Eng kerakli 2 ta action
+    actions = ("activate", "deactivate")
+
+    @admin.action(description="Faollashtirish")
+    def activate(self, request, queryset):
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f"{updated} ta kanal faollashtirildi.", level=messages.SUCCESS)
+
+    @admin.action(description="Faolsizlantirish")
+    def deactivate(self, request, queryset):
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f"{updated} ta kanal faolsizlantirildi.", level=messages.SUCCESS)
+
+    # Mayda, ammo foydali: invite_linkni tozalash (xatoliklarni kamaytiradi)
+    def save_model(self, request, obj, form, change):
+        if obj.invite_link:
+            obj.invite_link = obj.invite_link.strip()
+            # ixtiyoriy: agar @username kiritsa, t.me/username ko'rinishiga keltirish
+            if obj.invite_link.startswith('@'):
+                obj.invite_link = 'https://t.me/' + obj.invite_link.lstrip('@')
+        super().save_model(request, obj, form, change)
+
+
+
+
+
+
+
+
 
 
 class ExportCsvMixin:

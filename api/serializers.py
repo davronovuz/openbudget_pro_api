@@ -1,7 +1,7 @@
-from rest_framework import serializers
 from django.utils import timezone
 from .models import User, UserPhone, Transaction
-
+from rest_framework import serializers
+from .models import RequiredChannel,SubscriptionSnapshot
 
 class UserPhoneSerializer(serializers.ModelSerializer):
     class Meta:
@@ -63,3 +63,19 @@ class AdjustBalanceSerializer(serializers.Serializer):
         if v == 0:
             raise serializers.ValidationError("amount must be non-zero")
         return v
+
+
+
+class RequiredChannelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RequiredChannel
+        fields = ("id", "title", "chat_id", "invite_link")
+
+class SubscriptionSnapshotSerializer(serializers.ModelSerializer):
+    channel_title = serializers.CharField(source="channel.title", read_only=True)
+    channel_chat_id = serializers.IntegerField(source="channel.chat_id", read_only=True)
+
+    class Meta:
+        model = SubscriptionSnapshot
+        fields = ("id", "user_id", "channel", "channel_title", "channel_chat_id", "status", "updated_at", "error")
+        read_only_fields = ("id", "updated_at")

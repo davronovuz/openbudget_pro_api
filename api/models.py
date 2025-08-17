@@ -1,7 +1,6 @@
 from django.db import models
 from django.utils import timezone
 
-
 # ======== Helpers: CHOICES ========
 LANG_CHOICES = (
     ("uz", "Uzbek"),
@@ -81,6 +80,8 @@ EXPORT_STATUS = (
 )
 
 
+
+
 class User(models.Model):
     user_id = models.BigIntegerField(primary_key=True)  # Telegram ID
     username = models.CharField(max_length=128, null=True, blank=True)
@@ -121,6 +122,64 @@ class UserPhone(models.Model):
                 fields=["user", "phone_e164"], name="uq_user_phone_per_user"
             ),
         ]
+
+
+
+
+
+
+class RequiredChannel(models.Model):
+    """Majburiy obuna kerak bo'lgan Telegram kanal/guruh"""
+    id = models.AutoField(primary_key=True)
+    title = models.CharField(max_length=128, null=True, blank=True)
+    chat_id = models.BigIntegerField(unique=True)   # -100..., supergroup/channel
+    invite_link = models.CharField(max_length=255, null=True, blank=True)  # https://t.me/... (public) yoki private invite link
+    is_active = models.BooleanField(default=True)
+    priority = models.PositiveIntegerField(default=100)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "required_channels"
+        ordering = ["priority", "id"]
+        indexes = [
+            models.Index(fields=["is_active", "priority"], name="ix_reqchan_active_prio"),
+        ]
+
+    def __str__(self):
+        return f"{self.title or self.chat_id}"
+
+SNAP_STATUS = (
+    ("MEMBER", "MEMBER"),
+    ("NOT_MEMBER", "NOT_MEMBER"),
+)
+
+class SubscriptionSnapshot(models.Model):
+    """Foydalanuvchining har bir majburiy kanal bo'yicha oxirgi a'zolik holati."""
+    id = models.AutoField(primary_key=True)
+    user_id = models.BigIntegerField(db_index=True)  # Telegram user_id
+    channel = models.ForeignKey(RequiredChannel, on_delete=models.CASCADE, related_name="snapshots")
+
+    status = models.CharField(max_length=16, choices=SNAP_STATUS)
+    updated_at = models.DateTimeField(default=timezone.now)
+    error = models.CharField(max_length=255, null=True, blank=True)  # getChatMember xatosi bo'lsa
+
+    class Meta:
+        db_table = "subscription_snapshots"
+        constraints = [
+            models.UniqueConstraint(fields=["user_id", "channel"], name="uq_snapshot_user_channel"),
+        ]
+        indexes = [
+            models.Index(fields=["channel", "status"], name="ix_snap_channel_status"),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} → {self.channel_id} = {self.status}"
+
+
+
+
+
+
 
 
 class Project(models.Model):

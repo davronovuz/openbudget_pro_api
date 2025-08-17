@@ -9,8 +9,24 @@ from rest_framework.filters import SearchFilter
 from .models import User, UserPhone, Transaction
 from .serializers import (
     UserReadSerializer, UserWriteSerializer,
-    UserPhoneSerializer, AddPhoneSerializer, AdjustBalanceSerializer,
+    UserPhoneSerializer, AddPhoneSerializer, AdjustBalanceSerializer,RequiredChannelSerializer, SubscriptionSnapshotSerializer
 )
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework import status
+from django.conf import settings
+from .subscribe import get_required_channels_cached, compute_subscribe_status, upsert_snapshot
+from .models import RequiredChannel
+
+BOT_SECRET = "super-strong-random-secret-key"
+
+
+
+
+
+
+
 
 
 class UserPagination(LimitOffsetPagination):
@@ -135,6 +151,41 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({"ok": True, "new_balance": user.balance_sum})
 
 
-from django.shortcuts import render
 
-# Create your views here.
+@api_view(["GET"])  # Bot/Frontend required ro'yxatni oladi
+@permission_classes([AllowAny])
+def required_channels(request):
+    data = get_required_channels_cached()
+    return Response({"required": data})
+
+@api_view(["GET"])  # Bot/Frontend yakuniy holatni oladi
+@permission_classes([AllowAny])
+def subscribe_status(request):
+    try:
+        user_id = int(request.query_params.get("user_id"))
+    except Exception:
+        return Response({"detail": "user_id required"}, status=status.HTTP_400_BAD_REQUEST)
+    result = compute_subscribe_status(user_id)
+    return Response(result)
+
+@api_view(["POST"])  # Bot snapshot jo'natadi (getChatMember natijasi)
+@permission_classes([AllowAny])
+def snapshot_update(request):
+    secret = request.headers.get("X-Bot-Secret") or request.data.get("bot_secret")
+    if not BOT_SECRET or secret != BOT_SECRET:
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        user_id = int(request.data.get("user_id"))
+        channel_id = int(request.data.get("channel_id"))  # RequiredChannel.id
+        is_member = bool(request.data.get("is_member"))
+        error = request.data.get("error")
+    except Exception:
+        return Response({"detail": "invalid payload"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # channel mavjudligini minimal tekshiruv (agar xohlasangiz)
+    if not RequiredChannel.objects.filter(id=channel_id, is_active=True).exists():
+        return Response({"detail": "channel not active"}, status=status.HTTP_400_BAD_REQUEST)
+
+    upsert_snapshot(user_id, channel_id, is_member, error)
+    return Response({"ok": True})
