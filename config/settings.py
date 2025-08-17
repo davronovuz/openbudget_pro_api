@@ -58,32 +58,18 @@ MIDDLEWARE = [
 
 
 
-# CORS sozlamalari
 CORS_ALLOW_ALL_ORIGINS = True
 
+# MUHIM: trailing slashsiz, sxema (http) + IP + port
 CSRF_TRUSTED_ORIGINS = [
-    'http://144.91.113.85:8088/',
-
+    "http://144.91.113.85:8088",
 ]
 
-CORS_ALLOW_METHODS = [
-    "DELETE",
-    "GET",
-    "OPTIONS",
-    "PATCH",
-    "POST",
-    "PUT",
-]
+# HTTP ishlatayotganing uchun secure bo'lmasin
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
 
 
-CORS_ALLOW_HEADERS = [
-    "accept",
-    "authorization",
-    "content-type",
-    "origin",
-    "x-csrftoken",
-    "x-requested-with",
-]
 
 
 

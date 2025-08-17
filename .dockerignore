@@ -1,0 +1,19 @@
+# Python / Git
+.git/
+__pycache__/
+*.py[cod]
+.venv/
+env/
+
+# Django build artifacts
+staticfiles/
+media/
+
+# Local env & logs
+*.env
+*.log
+
+# Local SQLite DB
+db.sqlite3
+db/*.sqlite3
+db/*.db

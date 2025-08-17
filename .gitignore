@@ -205,3 +205,31 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Python / Django
+*.py[cod]
+
+*.pyc
+
+# Venv / IDE
+.venv/
+
+*.env
+.idea/
+.vscode/
+
+# Django runtime
+media/
+staticfiles/
+
+# SQLite DB (rootda bo‘lsa)
+db.sqlite3
+
+# Agar sizda `db/` papkada saqlansa:
+db/*.sqlite3
+db/*.db
+db/*.sqlite
+
+# Migrations NI git'ga qo'shasiz (kerak) — lekin migration cache yo'q:
+*/migrations/__pycache__/
+
