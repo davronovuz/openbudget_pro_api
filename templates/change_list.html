@@ -1,0 +1,114 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{#
+  User changelist sahifasi uchun kengaytirilgan statistik panel + grafiklar.
+  Kerakli contextlar UserAdmin.changelist_view da beriladi:
+  - headline: { total, active, banned, new_today, new_week, new_month, bans_today, bans_week, bans_month, languages }
+  - chart_signups_labels, chart_signups_data
+  - chart_bans_labels, chart_bans_data
+#}
+
+{% block content_title %}
+  {{ title }}
+  <small style="font-size:12px;color:#64748b;">— Statistika paneli bilan</small>
+{% endblock %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <style>
+    .ob-wrap{display:flex;flex-direction:column;gap:16px;margin-bottom:16px}
+    .ob-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+    .ob-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px}
+    .ob-k{font-size:12px;color:#64748b}
+    .ob-v{font-size:18px;font-weight:700}
+    .chip{display:inline-block;margin:4px 8px 0 0;padding:4px 10px;border:1px solid #e5e7eb;border-radius:9999px}
+    .ob-rows{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .chart-box{height:260px}
+    @media(max-width:1200px){.ob-grid{grid-template-columns:repeat(3,1fr)}.ob-rows{grid-template-columns:1fr}}
+  </style>
+{% endblock %}
+
+{% block result_list %}
+  <div class="ob-wrap">
+    <div class="ob-grid">
+      <div class="ob-card"><div class="ob-k">Jami foydalanuvchi</div><div class="ob-v">{{ headline.total|default:0 }}</div></div>
+      <div class="ob-card"><div class="ob-k">Faol</div><div class="ob-v">{{ headline.active|default:0 }}</div></div>
+      <div class="ob-card"><div class="ob-k">Bloklangan</div><div class="ob-v">{{ headline.banned|default:0 }}</div></div>
+      <div class="ob-card"><div class="ob-k">Bugun qo'shilgan</div><div class="ob-v">{{ headline.new_today|default:0 }}</div></div>
+      <div class="ob-card"><div class="ob-k">Haftalik qo'shilgan</div><div class="ob-v">{{ headline.new_week|default:0 }}</div></div>
+      <div class="ob-card"><div class="ob-k">Oylik qo'shilgan</div><div class="ob-v">{{ headline.new_month|default:0 }}</div></div>
+    </div>
+
+    <div class="ob-grid">
+      <div class="ob-card"><div class="ob-k">Bugungi ban</div><div class="ob-v">{{ headline.bans_today|default:0 }}</div></div>
+      <div class="ob-card"><div class="ob-k">Haftalik ban</div><div class="ob-v">{{ headline.bans_week|default:0 }}</div></div>
+      <div class="ob-card"><div class="ob-k">Oylik ban</div><div class="ob-v">{{ headline.bans_month|default:0 }}</div></div>
+      <div class="ob-card" style="grid-column:span 3;">
+        <div class="ob-k">Til kesimida</div>
+        <div>
+          {% for row in languages %}
+            <span class="chip">{{ row.language|default:"-" }}: <b>{{ row.c }}</b></span>
+          {% empty %}
+            <span class="ob-k">Ma'lumot yo'q</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="ob-rows">
+      <div class="ob-card chart-box">
+        <div class="ob-k" style="margin-bottom:8px;">So'ngi 30 kun: yangi ro'yxatdan o'tishlar</div>
+        <canvas id="signupsChart"></canvas>
+      </div>
+      <div class="ob-card chart-box">
+        <div class="ob-k" style="margin-bottom:8px;">So'ngi 30 kun: banlar</div>
+        <canvas id="bansChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  {{ block.super }}
+{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block footer %}
+  {{ block.super }}
+  <script>
+    (function(){
+      const signupsLabels = {{ chart_signups_labels|default:'[]'|safe }};
+      const signupsData   = {{ chart_signups_data|default:'[]'|safe }};
+      const bansLabels    = {{ chart_bans_labels|default:'[]'|safe }};
+      const bansData      = {{ chart_bans_data|default:'[]'|safe }};
+
+      try {
+        const sctx = document.getElementById('signupsChart').getContext('2d');
+        new Chart(sctx, {
+          type: 'line',
+          data: { labels: signupsLabels, datasets: [{ label: 'Signups', data: signupsData }]},
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 10 }}, y: { beginAtZero: true } }
+          }
+        });
+      } catch(e) { console.warn('Signups chart error', e); }
+
+      try {
+        const bctx = document.getElementById('bansChart').getContext('2d');
+        new Chart(bctx, {
+          type: 'bar',
+          data: { labels: bansLabels, datasets: [{ label: 'Bans', data: bansData }]},
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 10 }}, y: { beginAtZero: true } }
+          }
+        });
+      } catch(e) { console.warn('Bans chart error', e); }
+    })();
+  </script>
+{% endblock %}
