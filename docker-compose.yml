@@ -1,59 +1,47 @@
-version: "3.9"
 
 services:
-  web:
+  app:
     build: .
+    container_name: app
+    env_file:
+      - .env
     command: >
-      sh -c "
-      python manage.py migrate --noinput &&
-      python manage.py collectstatic --noinput &&
-      gunicorn config.wsgi:application
-              --bind 0.0.0.0:8001
-              --workers 3
-              --timeout 120
+      bash -lc "
+        python manage.py migrate &&
+        python manage.py collectstatic --noinput &&
+        gunicorn config.wsgi:application --bind 0.0.0.0:8001 --workers 3
       "
-    environment:
-      DJANGO_SETTINGS_MODULE: config.settings
-      SECRET_KEY: ${SECRET_KEY:-change-me}
-      DEBUG: "False"
-      TZ: Asia/Tashkent
-      # ⚠️ Eslatma: settings.py da quyidagilarni unutmang:
-      # ALLOWED_HOSTS = ["*", "167.86.71.176", "your.domain"]
-      # CSRF_TRUSTED_ORIGINS = ["http://167.86.71.176", "https://167.86.71.176", "https://your.domain"]
-    volumes:
-      - .:/app
-      - sqlite_data:/app/db
-      - static_data:/app/staticfiles
-      - media_data:/app/media
     expose:
       - "8001"
-    restart: unless-stopped
+    volumes:
+      - .:/app
+      - static-data:/app/staticfiles
+      - media-data:/app/media
     networks:
       - app-network
 
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.25-alpine
+    container_name: nginx
     depends_on:
-      - web
+      - app
     ports:
       - "80:80"
-      - "443:443"   # SSL bo‘lsa, bo‘lmasa olib turing
+      # - "443:443"   # SSL bo'lsa ochasiz
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - static_data:/var/www/static:ro
-      - media_data:/var/www/media:ro
-      # SSL fayllaringiz bo‘lsa (Let's Encrypt):
-      # - /etc/letsencrypt/live/your.domain/fullchain.pem:/etc/nginx/ssl/fullchain.pem:ro
-      # - /etc/letsencrypt/live/your.domain/privkey.pem:/etc/nginx/ssl/privkey.pem:ro
-    restart: unless-stopped
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - static-data:/app/staticfiles
+      - media-data:/app/media
+      # SSL fayllarini qo'ysangiz:
+      # - /etc/letsencrypt/live/ittat.uz/fullchain.pem:/etc/nginx/ssl/fullchain.pem:ro
+      # - /etc/letsencrypt/live/ittat.uz/privkey.pem:/etc/nginx/ssl/privkey.pem:ro
     networks:
       - app-network
-
-volumes:
-  sqlite_data:
-  static_data:
-  media_data:
 
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  static-data:
+  media-data:
