@@ -1,4 +1,3 @@
-
 import csv
 import json
 from datetime import timedelta
@@ -27,6 +26,12 @@ admin.site.index_title = "Boshqaruv paneli"
 # ==============================
 # Helpers & Mixins
 # ==============================
+
+def uzs(n):
+    """Raqamni vergul bilan ajratib (1,234,567) so'm ko'rinishida chiqarish uchun matn qaytaradi."""
+    return f"{(n or 0):,}"
+
+
 class ExportCsvMixin:
     """Changelist tanlangan obyektlarni CSV eksport qilish actioni."""
     csv_filename_prefix = "export"
@@ -251,7 +256,7 @@ class UserAdmin(ExportCsvMixin, StatsOnChangelistMixin, admin.ModelAdmin):
 
     def withdraw_sum_display(self, obj):
         val = obj.withdraw_paid_sum or 0
-        return format_html("<b>{:,}</b> so‘m", val)
+        return format_html("<b>{}</b> so‘m", uzs(val))
 
     withdraw_sum_display.short_description = "Paid out"
 
@@ -346,7 +351,7 @@ class ProjectAdmin(ExportCsvMixin, StatsOnChangelistMixin, admin.ModelAdmin):
     is_active_col.short_description = "Active"
 
     def reward_sum_fmt(self, obj):
-        return format_html("<b>{:,}</b> so‘m", obj.reward_sum or 0)
+        return format_html("<b>{}</b> so‘m", uzs(obj.reward_sum))
 
     reward_sum_fmt.short_description = "Reward"
 
@@ -488,7 +493,7 @@ class ReferralAdmin(ExportCsvMixin, StatsOnChangelistMixin, admin.ModelAdmin):
     status_col.short_description = "Status"
 
     def bonus_sum_fmt(self, obj):
-        return format_html("<b>{:,}</b> so‘m", obj.bonus_sum or 0)
+        return format_html("<b>{}</b> so‘m", uzs(obj.bonus_sum))
 
     bonus_sum_fmt.short_description = "Bonus"
 
@@ -535,8 +540,9 @@ class TransactionAdmin(ExportCsvMixin, StatsOnChangelistMixin, admin.ModelAdmin)
     type_col.short_description = "Type"
 
     def amount_fmt(self, obj):
-        color = "crimson" if (obj.amount_sum or 0) < 0 else "green"
-        return format_html('<b style="color:{}">{:,}</b> so‘m', color, obj.amount_sum or 0)
+        amt = obj.amount_sum or 0
+        color = "crimson" if amt < 0 else "green"
+        return format_html('<b style="color:{}">{}</b> so‘m', color, uzs(amt))
 
     amount_fmt.short_description = "Miqdor"
 
@@ -568,7 +574,7 @@ class WithdrawalAdmin(ExportCsvMixin, StatsOnChangelistMixin, admin.ModelAdmin):
     status_col.short_description = "Status"
 
     def amount_fmt(self, obj):
-        return format_html("<b>{:,}</b> so‘m", obj.amount_sum or 0)
+        return format_html("<b>{}</b> so‘m", uzs(obj.amount_sum))
 
     amount_fmt.short_description = "Miqdor"
 
@@ -737,4 +743,4 @@ class ExportJobAdmin(ExportCsvMixin, admin.ModelAdmin):
         n = queryset.update(status="FAILED")
         self.message_user(request, f"{n} ta export FAILED qilindi.", messages.ERROR)
 
-    mark_failed.short_description = "Status: FAILED"
+    mark_failed.short_description = {"Status: FAILED"}
