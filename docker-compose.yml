@@ -4,34 +4,44 @@ services:
     build: .
     command: >
       sh -c "
-      mkdir -p /app/db &&
       python manage.py migrate --noinput &&
       python manage.py collectstatic --noinput &&
-      gunicorn config.wsgi:application --bind 0.0.0.0:8001 --workers 3 --timeout 120
+      gunicorn config.wsgi:application
+              --bind 0.0.0.0:8001
+              --workers 3
+              --timeout 120
       "
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
-      SECRET_KEY: change-me
+      SECRET_KEY: ${SECRET_KEY:-change-me}
       DEBUG: "False"
       TZ: Asia/Tashkent
+      # Iltimos settings.py da ALLOWED_HOSTS va CSRF_TRUSTED_ORIGINS to'g'ri bo'lsin:
+      # ALLOWED_HOSTS = ["*", "YOUR_SERVER_IP", "your.domain"]
+      # CSRF_TRUSTED_ORIGINS = ["http://YOUR_SERVER_IP", "https://YOUR_SERVER_IP", "https://your.domain"]
     volumes:
       - .:/app
       - sqlite_data:/app/db
       - static_data:/app/staticfiles
       - media_data:/app/media
     expose:
-      - "8001"   # ichki (nginx shu portga proxy qiladi)
+      - "8001"   # ichki tarmoqda nginx shu portga proxy qiladi
+    restart: unless-stopped
 
   nginx:
     image: nginx:1.27-alpine
     depends_on:
       - web
     ports:
-      - "8088:80"      # host:container — 80 band bo'lsa ham muammo yo'q
+      - "80:80"
+      - "443:443"   # Agar sertifikatlar tayyor bo'lsa ishlatamiz; bo'lmasa, bu mappingni vaqtincha olib turing
     volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - static_data:/var/www/static:ro
       - media_data:/var/www/media:ro
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Agar real sertifikatlaringiz bo'lsa (Let's Encrypt) quyidagilarni oching:
+      # - /etc/letsencrypt/live/your.domain/fullchain.pem:/etc/nginx/ssl/fullchain.pem:ro
+      # - /etc/letsencrypt/live/your.domain/privkey.pem:/etc/nginx/ssl/privkey.pem:ro
     restart: unless-stopped
 
 volumes:
