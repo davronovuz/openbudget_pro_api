@@ -61,7 +61,11 @@ MIDDLEWARE = [
 CORS_ALLOW_ALL_ORIGINS = True
 
 # MUHIM: trailing slashsiz, sxema (http) + IP + port
-CSRF_TRUSTED_ORIGINS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    'http://167.86.71.176',
+]
+
 
 # HTTP ishlatayotganing uchun secure bo'lmasin
 CSRF_COOKIE_SECURE = False
