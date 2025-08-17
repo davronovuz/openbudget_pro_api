@@ -1,3 +1,4 @@
+version: "3.9"
 
 services:
   web:
@@ -16,17 +17,19 @@ services:
       SECRET_KEY: ${SECRET_KEY:-change-me}
       DEBUG: "False"
       TZ: Asia/Tashkent
-      # Iltimos settings.py da ALLOWED_HOSTS va CSRF_TRUSTED_ORIGINS to'g'ri bo'lsin:
-      # ALLOWED_HOSTS = ["*", "YOUR_SERVER_IP", "your.domain"]
-      # CSRF_TRUSTED_ORIGINS = ["http://YOUR_SERVER_IP", "https://YOUR_SERVER_IP", "https://your.domain"]
+      # ⚠️ Eslatma: settings.py da quyidagilarni unutmang:
+      # ALLOWED_HOSTS = ["*", "167.86.71.176", "your.domain"]
+      # CSRF_TRUSTED_ORIGINS = ["http://167.86.71.176", "https://167.86.71.176", "https://your.domain"]
     volumes:
       - .:/app
       - sqlite_data:/app/db
       - static_data:/app/staticfiles
       - media_data:/app/media
     expose:
-      - "8001"   # ichki tarmoqda nginx shu portga proxy qiladi
+      - "8001"
     restart: unless-stopped
+    networks:
+      - app-network
 
   nginx:
     image: nginx:1.27-alpine
@@ -34,17 +37,23 @@ services:
       - web
     ports:
       - "80:80"
-      - "443:443"   # Agar sertifikatlar tayyor bo'lsa ishlatamiz; bo'lmasa, bu mappingni vaqtincha olib turing
+      - "443:443"   # SSL bo‘lsa, bo‘lmasa olib turing
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - static_data:/var/www/static:ro
       - media_data:/var/www/media:ro
-      # Agar real sertifikatlaringiz bo'lsa (Let's Encrypt) quyidagilarni oching:
+      # SSL fayllaringiz bo‘lsa (Let's Encrypt):
       # - /etc/letsencrypt/live/your.domain/fullchain.pem:/etc/nginx/ssl/fullchain.pem:ro
       # - /etc/letsencrypt/live/your.domain/privkey.pem:/etc/nginx/ssl/privkey.pem:ro
     restart: unless-stopped
+    networks:
+      - app-network
 
 volumes:
   sqlite_data:
   static_data:
   media_data:
+
+networks:
+  app-network:
+    driver: bridge

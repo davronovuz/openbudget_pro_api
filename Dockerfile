@@ -6,18 +6,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Minimal system deps
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Requirements
+# Install deps
 COPY requirements.txt /app/requirements.txt
 RUN pip install --upgrade pip && pip install -r /app/requirements.txt
 
-# Project
+# Copy project
 COPY . /app
 
-# Dirs for SQLite, static, media
+# Prepare dirs
 RUN mkdir -p /app/db /app/staticfiles /app/media
 
 EXPOSE 8001
