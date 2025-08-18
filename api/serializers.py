@@ -99,3 +99,16 @@ class DeductRequestSerializer(serializers.Serializer):
     amount_sum = serializers.IntegerField(min_value=1)  # so'm, positive
     type = serializers.ChoiceField(choices=["WITHDRAWAL", "PENALTY", "ADJUSTMENT"], default="WITHDRAWAL")
     ref_id = serializers.IntegerField(required=False, allow_null=True)
+
+
+class ReferralConfigOut(serializers.Serializer):
+    referral_reward_sum = serializers.IntegerField()
+    bot_username = serializers.CharField()
+
+class ReferralGrantIn(serializers.Serializer):
+    referrer_user_id = serializers.IntegerField()
+    referred_user_id = serializers.IntegerField()
+
+class ReferralStatsOut(serializers.Serializer):
+    invited_count = serializers.IntegerField()
+    paid_sum = serializers.IntegerField()
