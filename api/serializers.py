@@ -79,3 +79,23 @@ class SubscriptionSnapshotSerializer(serializers.ModelSerializer):
         model = SubscriptionSnapshot
         fields = ("id", "user_id", "channel", "channel_title", "channel_chat_id", "status", "updated_at", "error")
         read_only_fields = ("id", "updated_at")
+
+
+
+class BalanceResponseSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    balance_sum = serializers.IntegerField()
+
+
+class AddRequestSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()  # Telegram ID (your PK)
+    amount_sum = serializers.IntegerField(min_value=1)  # so'm, positive
+    type = serializers.ChoiceField(choices=["REWARD", "REFERRAL", "ADJUSTMENT"], default="REWARD")
+    ref_id = serializers.IntegerField(required=False, allow_null=True)
+
+
+class DeductRequestSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    amount_sum = serializers.IntegerField(min_value=1)  # so'm, positive
+    type = serializers.ChoiceField(choices=["WITHDRAWAL", "PENALTY", "ADJUSTMENT"], default="WITHDRAWAL")
+    ref_id = serializers.IntegerField(required=False, allow_null=True)

@@ -9,7 +9,9 @@ from rest_framework.filters import SearchFilter
 from .models import User, UserPhone, Transaction
 from .serializers import (
     UserReadSerializer, UserWriteSerializer,
-    UserPhoneSerializer, AddPhoneSerializer, AdjustBalanceSerializer,RequiredChannelSerializer, SubscriptionSnapshotSerializer
+    UserPhoneSerializer, AddPhoneSerializer, AdjustBalanceSerializer,
+    RequiredChannelSerializer, SubscriptionSnapshotSerializer, AddRequestSerializer, DeductRequestSerializer,
+    BalanceResponseSerializer,
 )
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -18,6 +20,17 @@ from rest_framework import status
 from django.conf import settings
 from .subscribe import get_required_channels_cached, compute_subscribe_status, upsert_snapshot
 from .models import RequiredChannel
+
+from django.db import transaction as db_tx
+from django.db.models import F
+from django.shortcuts import get_object_or_404
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status, permissions, serializers
+
+from .models import User, Transaction
+
 
 BOT_SECRET = "super-strong-random-secret-key"
 
@@ -189,3 +202,113 @@ def snapshot_update(request):
 
     upsert_snapshot(user_id, channel_id, is_member, error)
     return Response({"ok": True})
+
+
+
+
+INCOME_TYPES = {"REWARD", "REFERRAL"}
+OUTCOME_TYPES = {"WITHDRAWAL", "PENALTY"}
+ADJUSTMENT = "ADJUSTMENT"
+
+
+def _get_user_or_404(user_id: int) -> User:
+    return get_object_or_404(User, pk=user_id)
+
+
+# -------------------------
+# Views
+# -------------------------
+class BalanceView(APIView):
+    """GET /api/balance/<int:user_id>/ — current balance from User.balance_sum"""
+
+    authentication_classes = []
+    permission_classes = []  # make it IsAdminUser if needed
+
+    def get(self, request, user_id: int):
+        user = _get_user_or_404(user_id)
+        data = BalanceResponseSerializer({"user_id": user.user_id, "balance_sum": user.balance_sum}).data
+        return Response(data)
+
+
+class AddMoneyView(APIView):
+    """POST /api/balance/add/ — credit user & write Transaction
+    Body: { user_id, amount_sum (>0), type: REWARD|REFERRAL|ADJUSTMENT, ref_id? }
+    """
+
+    # Example: restrict to admins only
+    # permission_classes = [permissions.IsAdminUser]
+    authentication_classes = []
+    permission_classes = []
+
+    @db_tx.atomic
+    def post(self, request):
+        ser = AddRequestSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        user = _get_user_or_404(ser.validated_data["user_id"])
+        amount = ser.validated_data["amount_sum"]  # positive int
+        tx_type = ser.validated_data["type"]
+        ref_id = ser.validated_data.get("ref_id")
+
+        # Map ADJUSTMENT as income (positive) here; if you need negative, use Deduct API with ADJUSTMENT
+        # Write transaction first for a complete audit trail
+        Transaction.objects.create(
+            user=user,
+            type=tx_type,
+            amount_sum=amount,  # positive
+            ref_id=ref_id,
+        )
+        # Increment balance safely
+        User.objects.filter(pk=user.user_id).update(balance_sum=F("balance_sum") + amount)
+        user.refresh_from_db(fields=["balance_sum"])
+
+        return Response({
+            "ok": True,
+            "user_id": user.user_id,
+            "delta": amount,
+            "type": tx_type,
+            "balance_sum": user.balance_sum,
+        }, status=status.HTTP_201_CREATED)
+
+
+
+class DeductMoneyView(APIView):
+    """POST /api/balance/deduct/ — debit user & write Transaction
+    Body: { user_id, amount_sum (>0), type: WITHDRAWAL|PENALTY|ADJUSTMENT, ref_id? }
+    Stores negative amount_sum in Transaction for outcomes.
+    """
+
+    # permission_classes = [permissions.IsAdminUser]
+    authentication_classes = []
+    permission_classes = []
+
+    @db_tx.atomic
+    def post(self, request):
+        ser = DeductRequestSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        user = _get_user_or_404(ser.validated_data["user_id"])
+        amount = ser.validated_data["amount_sum"]  # positive int
+        tx_type = ser.validated_data["type"]
+        ref_id = ser.validated_data.get("ref_id")
+
+        # Sufficient funds check
+        if user.balance_sum < amount:
+            return Response({"ok": False, "error": "INSUFFICIENT_BALANCE", "balance_sum": user.balance_sum}, status=400)
+
+        # Write outcome as negative in transactions (your model comment matches this)
+        Transaction.objects.create(
+            user=user,
+            type=tx_type,
+            amount_sum= -amount,  # negative row for outcome
+            ref_id=ref_id,
+        )
+        # Decrement balance safely
+        User.objects.filter(pk=user.user_id).update(balance_sum=F("balance_sum") - amount)
+        user.refresh_from_db(fields=["balance_sum"])
+
+        return Response({
+            "ok": True,
+            "user_id": user.user_id,
+            "delta": -amount,
+            "type": tx_type,
+            "balance_sum": user.balance_sum,
+        }, status=status.HTTP_201_CREATED)
