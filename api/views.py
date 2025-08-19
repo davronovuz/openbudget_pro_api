@@ -385,17 +385,18 @@ class ReferralStatsView(APIView):
 
 
 
-
 # finance/views.py
 from rest_framework import viewsets, mixins, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 
-from .models import Withdrawal
+from .models import Withdrawal, User
 from .serializers import WithdrawalCreateSerializer, WithdrawalSerializer
-from .services import create_withdrawal
+
+from .services import create_withdrawal, approve_withdrawal, reject_withdrawal, mark_paid
+
 
 class WithdrawalViewSet(viewsets.GenericViewSet,
                         mixins.ListModelMixin,
@@ -404,32 +405,46 @@ class WithdrawalViewSet(viewsets.GenericViewSet,
     serializer_class = WithdrawalSerializer
 
     def get_queryset(self):
-        # Faqat o'zining so'rovlari
-        return Withdrawal.objects.filter(user=self.request.user).order_by("-created_at")
+        """
+        Faqat foydalanuvchining o‘z so‘rovlari.
+        """
+        return Withdrawal.objects.all().order_by("-created_at")
 
     @action(detail=False, methods=["post"])
     def create_request(self, request):
-
+        """
+        Yangi withdraw so‘rov yuborish.
+        Body:
+        {
+          "user_id": 1879114908,
+          "method": "CARD" | "PAYME" | "CLICK" | "PHONE" | "OTHER",
+          "destination": "<foydalanuvchi kiritgan to'liq karta/tel>",
+          "amount": 15000
+        }
+        """
         s = WithdrawalCreateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         data = s.validated_data
 
-        # Eng sodda format tekshiruv (keyinchalik kuchaytiramiz)
+        user = get_object_or_404(User, user_id=data["user_id"])
         method = data["method"]
         dest = data["destination"].strip()
+        amount = data["amount"]
+
+        # Minimal tekshiruv
         if method == "CARD":
             if not (dest.isdigit() and len(dest) == 16):
-                return Response({"detail": "Karta raqami 16 ta raqam bo'lishi kerak."},
-                                status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"detail": "Karta raqami 16 ta raqam bo‘lishi kerak."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         try:
-            user_id = request.data.get("user_id")
-            user = get_object_or_404(User, user_id=user_id)
             w = create_withdrawal(
                 user=user,
                 method=method,
                 destination_raw=dest,
-                amount=data["amount"],
+                amount=amount,
             )
         except ValidationError as e:
             return Response({"detail": e.message}, status=status.HTTP_400_BAD_REQUEST)

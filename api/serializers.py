@@ -116,20 +116,23 @@ class ReferralStatsOut(serializers.Serializer):
 
 
 
-
+# finance/serializers.py
 from rest_framework import serializers
-from .models import Withdrawal, WITHDRAW_METHOD
+from .models import Withdrawal, WITHDRAW_METHOD, User
 
 class WithdrawalCreateSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()  # Telegram ID
     method = serializers.ChoiceField(choices=WITHDRAW_METHOD)
     destination = serializers.CharField(max_length=128)
     amount = serializers.IntegerField(min_value=1000)
 
 class WithdrawalSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source="user.user_id", read_only=True)
+
     class Meta:
         model = Withdrawal
         fields = [
-            "id", "user", "amount_sum", "method",
+            "id", "user_id", "amount_sum", "method",
             "destination_masked", "status",
             "admin_id", "admin_note",
             "created_at", "updated_at",
