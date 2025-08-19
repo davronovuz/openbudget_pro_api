@@ -616,55 +616,55 @@ class TransactionAdmin(ExportCsvMixin, StatsOnChangelistMixin, admin.ModelAdmin)
         }
 
 
-@admin.register(Withdrawal)
-class WithdrawalAdmin(ExportCsvMixin, StatsOnChangelistMixin, admin.ModelAdmin):
-    list_display = (
-        "id", "user_id", "amount_fmt", "method", "status_col",
-        "destination_masked", "updated_at", "created_at",
-    )
-    list_filter = ("status", "method", TodayCreatedFilter)
-    search_fields = ("user__username", "user_id", "destination_masked")
-    date_hierarchy = "created_at"
-    readonly_fields = ("created_at", "updated_at")
-    actions = ["export_as_csv", "approve", "reject", "mark_paid"]
-    csv_filename_prefix = "withdrawals"
-
-    def status_col(self, obj):
-        return colored_status(obj.status)
-
-    status_col.short_description = "Status"
-
-    def amount_fmt(self, obj):
-        return format_html("<b>{}</b> so‘m", uzs(obj.amount_sum))
-
-    amount_fmt.short_description = "Miqdor"
-
-    def approve(self, request, queryset):
-        n = queryset.filter(status="PENDING").update(status="APPROVED")
-        self.message_user(request, f"{n} ta so‘rov APPROVED qilindi.", messages.INFO)
-
-    approve.short_description = "APPROVE (tanlangan PENDING)"
-
-    def reject(self, request, queryset):
-        n = queryset.exclude(status="PAID").update(status="REJECTED")
-        self.message_user(request, f"{n} ta so‘rov REJECTED qilindi.", messages.WARNING)
-
-    reject.short_description = "REJECT (PAID bo‘lmaganlar)"
-
-    def mark_paid(self, request, queryset):
-        n = queryset.exclude(status="PAID").update(status="PAID")
-        self.message_user(request, f"{n} ta so‘rov PAID qilindi.", messages.SUCCESS)
-
-    mark_paid.short_description = "PAID qilish"
-
-    def get_quick_stats(self) -> dict:
-        qs = Withdrawal.objects.all()
-        return {
-            "PENDING": qs.filter(status="PENDING").count(),
-            "APPROVED": qs.filter(status="APPROVED").count(),
-            "PAID": qs.filter(status="PAID").count(),
-            "REJECTED": qs.filter(status="REJECTED").count(),
-        }
+# @admin.register(Withdrawal)
+# class WithdrawalAdmin(ExportCsvMixin, StatsOnChangelistMixin, admin.ModelAdmin):
+#     list_display = (
+#         "id", "user_id", "amount_fmt", "method", "status_col",
+#         "destination_masked", "updated_at", "created_at",
+#     )
+#     list_filter = ("status", "method", TodayCreatedFilter)
+#     search_fields = ("user__username", "user_id", "destination_masked")
+#     date_hierarchy = "created_at"
+#     readonly_fields = ("created_at", "updated_at")
+#     actions = ["export_as_csv", "approve", "reject", "mark_paid"]
+#     csv_filename_prefix = "withdrawals"
+#
+#     def status_col(self, obj):
+#         return colored_status(obj.status)
+#
+#     status_col.short_description = "Status"
+#
+#     def amount_fmt(self, obj):
+#         return format_html("<b>{}</b> so‘m", uzs(obj.amount_sum))
+#
+#     amount_fmt.short_description = "Miqdor"
+#
+#     def approve(self, request, queryset):
+#         n = queryset.filter(status="PENDING").update(status="APPROVED")
+#         self.message_user(request, f"{n} ta so‘rov APPROVED qilindi.", messages.INFO)
+#
+#     approve.short_description = "APPROVE (tanlangan PENDING)"
+#
+#     def reject(self, request, queryset):
+#         n = queryset.exclude(status="PAID").update(status="REJECTED")
+#         self.message_user(request, f"{n} ta so‘rov REJECTED qilindi.", messages.WARNING)
+#
+#     reject.short_description = "REJECT (PAID bo‘lmaganlar)"
+#
+#     def mark_paid(self, request, queryset):
+#         n = queryset.exclude(status="PAID").update(status="PAID")
+#         self.message_user(request, f"{n} ta so‘rov PAID qilindi.", messages.SUCCESS)
+#
+#     mark_paid.short_description = "PAID qilish"
+#
+#     def get_quick_stats(self) -> dict:
+#         qs = Withdrawal.objects.all()
+#         return {
+#             "PENDING": qs.filter(status="PENDING").count(),
+#             "APPROVED": qs.filter(status="APPROVED").count(),
+#             "PAID": qs.filter(status="PAID").count(),
+#             "REJECTED": qs.filter(status="REJECTED").count(),
+#         }
 
 
 @admin.register(AdminLog)
@@ -805,3 +805,117 @@ class ExportJobAdmin(ExportCsvMixin, admin.ModelAdmin):
         self.message_user(request, f"{n} ta export FAILED qilindi.", messages.ERROR)
 
     mark_failed.short_description = {"Status: FAILED"}
+
+
+
+
+
+
+# finance/admin.py (faqat Withdraw qismi)
+from django.contrib import admin, messages
+from django.utils.html import format_html
+from django.utils import timezone
+
+from .models import Withdrawal
+from .services import approve_withdrawal, reject_withdrawal, mark_paid
+from .tg_notify import notify_user, notify_payout_channel
+
+
+def uzs(n):
+    return f"{(n or 0):,}"
+
+
+def colored_status(value: str):
+    color = "gray"
+    if value in {"PENDING", "OTP_REQUIRED"}:
+        color = "orange"
+    if value in {"PROCESSING", "APPROVED"}:
+        color = "blue"
+    if value in {"SUCCESS", "PAID"}:
+        color = "green"
+    if value in {"FAILED", "REJECTED", "CANCELED"}:
+        color = "crimson"
+    return format_html('<b style="color:{}">{}</b>', color, value)
+
+
+@admin.register(Withdrawal)
+class WithdrawalAdmin(admin.ModelAdmin):
+    list_display = (
+        "id", "user_id", "amount_fmt", "method", "status_col",
+        "destination_masked", "updated_at", "created_at",
+    )
+    list_filter = ("status", "method")
+    search_fields = ("user__username", "user_id", "destination_masked")
+    date_hierarchy = "created_at"
+    readonly_fields = ("created_at", "updated_at")
+    actions = ["approve_selected", "reject_selected", "mark_paid_selected"]
+
+    def status_col(self, obj):
+        return colored_status(obj.status)
+
+    status_col.short_description = "Status"
+
+    def amount_fmt(self, obj):
+        return format_html("<b>{}</b> so‘m", uzs(obj.amount_sum))
+
+    amount_fmt.short_description = "Miqdor"
+
+    @admin.action(description="✅ APPROVE — servis orqali")
+    def approve_selected(self, request, queryset):
+        ok = err = 0
+        for w in queryset.select_related("user"):
+            try:
+                if w.status != "PENDING":
+                    continue
+                approve_withdrawal(w=w, admin_id=getattr(request.user, "id", 0), note="admin.action")
+                # Telegram: user + kanal
+                notify_user(w.user_id, f"🟡 Withdraw tasdiqlandi. Holat: <b>{w.status}</b>")
+                notify_payout_channel(
+                    f"🟡 APPROVED → ID: <code>{w.id}</code>, User: <code>{w.user_id}</code>, Amount: <b>{w.amount_sum}</b>"
+                )
+                ok += 1
+            except Exception as e:
+                err += 1
+        self.message_user(request, f"Approve done: OK={ok}, ERR={err}", messages.INFO)
+
+    @admin.action(description="❌ REJECT — servis orqali")
+    def reject_selected(self, request, queryset):
+        ok = err = 0
+        reason = "admin.action"
+        for w in queryset.select_related("user"):
+            try:
+                if w.status not in ("PENDING", "APPROVED"):
+                    continue
+                reject_withdrawal(w=w, admin_id=getattr(request.user, "id", 0), reason=reason)
+                notify_user(w.user_id, f"❌ Withdraw rad etildi.\nSabab: <i>{reason}</i>")
+                notify_payout_channel(
+                    f"❌ REJECTED → ID: <code>{w.id}</code>, User: <code>{w.user_id}</code>, Amount: <b>{w.amount_sum}</b>, Reason: {reason}"
+                )
+                ok += 1
+            except Exception:
+                err += 1
+        self.message_user(request, f"Reject done: OK={ok}, ERR={err}", messages.WARNING)
+
+    @admin.action(description="💸 MARK PAID — servis orqali")
+    def mark_paid_selected(self, request, queryset):
+        ok = err = 0
+        for w in queryset.select_related("user"):
+            try:
+                if w.status not in ("PENDING", "APPROVED"):
+                    continue
+                mark_paid(w=w, admin_id=getattr(request.user, "id", 0), proof_url="", note="admin.action")
+                notify_user(
+                    w.user_id,
+                    (
+                        f"💸 Pul yuborildi!\n"
+                        f"Miqdor: <b>{w.amount_sum}</b>\n"
+                        f"Usul: <b>{w.method}</b> → <code>{w.destination_masked}</code>"
+                    ),
+                )
+                notify_payout_channel(
+                    f"✅ PAID → ID: <code>{w.id}</code>, User: <code>{w.user_id}</code>, Amount: <b>{w.amount_sum}</b>"
+                )
+                ok += 1
+            except Exception:
+                err += 1
+        self.message_user(request, f"PAID done: OK={ok}, ERR={err}", messages.SUCCESS)

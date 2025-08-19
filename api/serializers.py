@@ -112,3 +112,26 @@ class ReferralGrantIn(serializers.Serializer):
 class ReferralStatsOut(serializers.Serializer):
     invited_count = serializers.IntegerField()
     paid_sum = serializers.IntegerField()
+
+
+
+
+
+from rest_framework import serializers
+from .models import Withdrawal, WITHDRAW_METHOD
+
+class WithdrawalCreateSerializer(serializers.Serializer):
+    method = serializers.ChoiceField(choices=WITHDRAW_METHOD)
+    destination = serializers.CharField(max_length=128)
+    amount = serializers.IntegerField(min_value=1000)
+
+class WithdrawalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Withdrawal
+        fields = [
+            "id", "user", "amount_sum", "method",
+            "destination_masked", "status",
+            "admin_id", "admin_note",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = fields

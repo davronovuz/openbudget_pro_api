@@ -1,10 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import UserViewSet, required_channels, subscribe_status, snapshot_update, BalanceView, AddMoneyView, \
-    DeductMoneyView, ReferralConfigView, ReferralGrantView, ReferralStatsView
+    DeductMoneyView, ReferralConfigView, ReferralGrantView, ReferralStatsView,WithdrawalViewSet
 
 router = DefaultRouter()
+
 router.register(r"users", UserViewSet, basename="user")
+router.register(r'withdrawals', WithdrawalViewSet, basename='withdrawals')
+
 
 urlpatterns = [
     path("", include(router.urls)),
@@ -18,6 +21,10 @@ urlpatterns = [
     path("api/referral/grant/",  ReferralGrantView.as_view()),
     path("api/referral/stats/<int:user_id>/", ReferralStatsView.as_view()),
 ]
+
+
+
+
 
 
 

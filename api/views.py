@@ -382,3 +382,87 @@ class ReferralStatsView(APIView):
         invited_count = Referral.objects.filter(referrer_user_id=user_id).count()
         paid_sum = Referral.objects.filter(referrer_user_id=user_id, status="PAID").aggregate(s=Sum("bonus_sum"))["s"] or 0
         return Response(ReferralStatsOut({"invited_count": invited_count, "paid_sum": paid_sum}).data)
+
+
+
+
+# finance/views.py
+from rest_framework import viewsets, mixins, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.core.exceptions import ValidationError
+
+from .models import Withdrawal
+from .serializers import WithdrawalCreateSerializer, WithdrawalSerializer
+from .services import create_withdrawal
+
+class WithdrawalViewSet(viewsets.GenericViewSet,
+                        mixins.ListModelMixin,
+                        mixins.RetrieveModelMixin):
+    """
+    Foydalanuvchi o'z withdraw tarixini ko'radi va yangi so'rov yuboradi.
+    """
+    serializer_class = WithdrawalSerializer
+
+    def get_queryset(self):
+        # Faqat o'zining so'rovlari
+        return Withdrawal.objects.filter(user=self.request.user).order_by("-created_at")
+
+    @action(detail=False, methods=["post"])
+    def create_request(self, request):
+        """
+        Body:
+        {
+          "method": "CARD" | "PAYME" | "CLICK" | "OTHER",
+          "destination": "<foydalanuvchi kiritgan to'liq karta/tel/account>",
+          "amount": 15000
+        }
+        """
+        s = WithdrawalCreateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data = s.validated_data
+
+        # Eng sodda format tekshiruv (keyinchalik kuchaytiramiz)
+        method = data["method"]
+        dest = data["destination"].strip()
+        if method == "CARD":
+            if not (dest.isdigit() and len(dest) == 16):
+                return Response({"detail": "Karta raqami 16 ta raqam bo'lishi kerak."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            w = create_withdrawal(
+                user=request.user,
+                method=method,
+                destination_raw=dest,
+                amount=data["amount"],
+            )
+        except ValidationError as e:
+            return Response({"detail": e.message}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(WithdrawalSerializer(w).data, status=status.HTTP_201_CREATED)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
