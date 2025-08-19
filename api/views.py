@@ -400,9 +400,7 @@ from .services import create_withdrawal
 class WithdrawalViewSet(viewsets.GenericViewSet,
                         mixins.ListModelMixin,
                         mixins.RetrieveModelMixin):
-    """
-    Foydalanuvchi o'z withdraw tarixini ko'radi va yangi so'rov yuboradi.
-    """
+
     serializer_class = WithdrawalSerializer
 
     def get_queryset(self):
@@ -411,14 +409,7 @@ class WithdrawalViewSet(viewsets.GenericViewSet,
 
     @action(detail=False, methods=["post"])
     def create_request(self, request):
-        """
-        Body:
-        {
-          "method": "CARD" | "PAYME" | "CLICK" | "OTHER",
-          "destination": "<foydalanuvchi kiritgan to'liq karta/tel/account>",
-          "amount": 15000
-        }
-        """
+
         s = WithdrawalCreateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         data = s.validated_data
@@ -432,8 +423,10 @@ class WithdrawalViewSet(viewsets.GenericViewSet,
                                 status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            user_id = request.data.get("user_id")
+            user = get_object_or_404(User, user_id=user_id)
             w = create_withdrawal(
-                user=request.user,
+                user=user,
                 method=method,
                 destination_raw=dest,
                 amount=data["amount"],
