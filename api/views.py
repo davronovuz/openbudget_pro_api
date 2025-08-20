@@ -496,6 +496,7 @@ def withdrawals_updates(request):
             "status": w.status,
             "amount": w.amount_sum,
             "method": w.method,
+            "reason":w.admin_note,
             "destination": w.destination_masked,
             "updated_at": w.updated_at.isoformat(),
         }
