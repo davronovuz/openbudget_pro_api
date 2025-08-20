@@ -50,7 +50,7 @@ WITHDRAW_METHOD = (
     ("CARD", "CARD"),
     ("CLICK", "CLICK"),
     ("PAYME", "PAYME"),
-    ("PHONE", "PHONE"),
+    ("PAYNET", "PAYNET"),
     ("OTHER", "OTHER"),
 )
 
