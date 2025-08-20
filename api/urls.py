@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import UserViewSet, required_channels, subscribe_status, snapshot_update, BalanceView, AddMoneyView, \
-    DeductMoneyView, ReferralConfigView, ReferralGrantView, ReferralStatsView,WithdrawalViewSet
+    DeductMoneyView, ReferralConfigView, ReferralGrantView, ReferralStatsView, WithdrawalViewSet, withdrawals_updates
 
 router = DefaultRouter()
 
@@ -20,6 +20,8 @@ urlpatterns = [
     path("api/referral/config/", ReferralConfigView.as_view()),
     path("api/referral/grant/",  ReferralGrantView.as_view()),
     path("api/referral/stats/<int:user_id>/", ReferralStatsView.as_view()),
+    path("api/withdrawals/updates/",withdrawals_updates, name="withdrawals_updates"),
+
 ]
 
 

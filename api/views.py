@@ -473,7 +473,35 @@ class WithdrawalViewSet(viewsets.GenericViewSet,
 
 
 
+# finance/api_views.py
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from .models import Withdrawal
 
+@api_view(["GET"])
+def withdrawals_updates(request):
+    """
+    Admin tomonidan PAID yoki REJECTED qilingan withdrawals qaytadi.
+    Faqat so‘nggi yangilanganlarini yuboramiz.
+    Query param: ?after_id=123
+    """
+    after_id = request.query_params.get("after_id")
+    qs = Withdrawal.objects.filter(status__in=["PAID", "REJECTED"]).order_by("id")
+    if after_id:
+        qs = qs.filter(id__gt=after_id)
+    data = [
+        {
+            "id": w.id,
+            "user_id": w.user_id,
+            "status": w.status,
+            "amount": w.amount_sum,
+            "method": w.method,
+            "destination": w.destination_masked,
+            "updated_at": w.updated_at.isoformat(),
+        }
+        for w in qs
+    ]
+    return Response(data)
 
 
 

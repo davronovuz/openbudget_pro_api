@@ -168,4 +168,3 @@ def mark_paid(*, w: Withdrawal, admin_id: int, proof_url: str = "", note: str = 
         },
     )
     return w
-
