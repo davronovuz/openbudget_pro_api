@@ -20,8 +20,9 @@ def create_withdrawal(*, user: User, method: str, destination_raw: str, amount: 
     if amount < MIN_WITHDRAW:
         raise ValidationError(f"Minimal yechish {MIN_WITHDRAW} so'm.")
 
-    if Withdrawal.objects.filter(user=user, status="PENDING").exists():
-        raise ValidationError("Sizda ochiq withdraw so‘rovi bor.")
+
+    if Withdrawal.objects.filter(user=user, status__in=["PENDING", "APPROVED"]).exists():
+        raise ValidationError("❗ Sizda hali tugallanmagan pul  yechish so‘rovi bor. Iltimos yakunlashni kuting.")
 
     # Balansni qulflash
     u = User.objects.select_for_update().get(pk=user.pk)

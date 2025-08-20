@@ -410,6 +410,22 @@ class WithdrawalViewSet(viewsets.GenericViewSet,
         """
         return Withdrawal.objects.all().order_by("-created_at")
 
+    @action(detail=False, methods=["get"])
+    def has_open_request(self, request):
+        """
+        GET /api/withdrawals/has_open_request/?user_id=12345
+        """
+        user_id = request.query_params.get("user_id")
+        if not user_id:
+            return Response({"detail": "user_id required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        open_exists = Withdrawal.objects.filter(
+            user_id=user_id,
+            status__in=["PENDING", "APPROVED"]
+        ).exists()
+
+        return Response({"open": open_exists})
+
     @action(detail=False, methods=["post"])
     def create_request(self, request):
         """
