@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from .masking import mask_destination
 from .models import Withdrawal, Transaction, User  # sizning joylashuvingizga mos import qiling
 
-MIN_WITHDRAW = 5000  # faqat minimal qoida (modelga tegmadik)
+MIN_WITHDRAW = 20000  # faqat minimal qoida (modelga tegmadik)
 
 @dbtx.atomic
 def create_withdrawal(*, user: User, method: str, destination_raw: str, amount: int) -> Withdrawal:

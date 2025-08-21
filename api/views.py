@@ -318,7 +318,7 @@ class DeductMoneyView(APIView):
 def get_global_settings():
     s, _ = Setting.objects.get_or_create(key="GLOBAL")
     if not hasattr(s, "referral_reward_sum"):
-        s.referral_reward_sum = 2000
+        s.referral_reward_sum = 1000
     if not hasattr(s, "bot_username"):
         s.bot_username = "openbudget_humo_bot"  # ✅ fixed to your bot
     return s
